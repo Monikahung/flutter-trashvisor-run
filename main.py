@@ -3,6 +3,7 @@ import datetime
 from flask import Flask, request, jsonify
 from google.cloud import storage
 from google.auth import compute_engine
+from google.auth import default
 
 # Pastikan nama bucket sudah benar
 BUCKET_NAME = "trashvisor-dataset"
@@ -25,9 +26,9 @@ def generate_signed_url():
     blob_path = f"{user_id}/{file_name}"
 
     try:
-        # Gunakan kredensial yang disediakan oleh lingkungan Google Cloud Run
-        credentials = compute_engine.Credentials()
-        storage_client = storage.Client(credentials=credentials)
+        # Gunakan kredensial default dari lingkungan. Ini adalah pendekatan yang paling andal.
+        credentials, project = default()
+        storage_client = storage.Client(credentials=credentials, project=project)
         
         bucket = storage_client.bucket(BUCKET_NAME)
         blob = bucket.blob(blob_path)
