@@ -1,17 +1,18 @@
+import os
+import datetime
 from flask import Flask, request, jsonify
 from google.cloud import storage
-import datetime
-import os
+from google.auth import compute_engine
+
+# Pastikan nama bucket sudah benar
+BUCKET_NAME = "trashvisor-dataset"
 
 app = Flask(__name__)
-
-# Nama bucket dari Google Cloud Storage
-BUCKET_NAME = "trashvisor-dataset"
 
 @app.route("/generate-signed-url", methods=["POST"])
 def generate_signed_url():
     """
-    Menghasilkan URL yang ditandatangani (signed URL) untuk mengunggah file ke Google Cloud Storage.
+    Menghasilkan URL yang ditandatangani untuk mengunggah file ke Google Cloud Storage.
     """
     data = request.get_json()
     file_name = data.get("file_name")
@@ -24,11 +25,14 @@ def generate_signed_url():
     blob_path = f"{user_id}/{file_name}"
 
     try:
-        storage_client = storage.Client()
+        # Gunakan kredensial yang disediakan oleh lingkungan Google Cloud Run
+        credentials = compute_engine.Credentials()
+        storage_client = storage.Client(credentials=credentials)
+        
         bucket = storage_client.bucket(BUCKET_NAME)
         blob = bucket.blob(blob_path)
 
-        # Menghasilkan URL yang ditandatangani untuk mengunggah file
+        # Menghasilkan URL yang ditandatangani
         url = blob.generate_signed_url(
             version="v4",
             expiration=datetime.timedelta(minutes=15),  # URL berlaku selama 15 menit
@@ -38,12 +42,9 @@ def generate_signed_url():
 
         return jsonify({"signed_url": url})
     except Exception as e:
-        # Menangani kesalahan jika terjadi
+        # Menangani kesalahan dan mengembalikannya sebagai respons JSON
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # Mengambil port dari variabel lingkungan yang disediakan oleh Cloud Run
     port = int(os.environ.get("PORT", 8080))
-    # Menjalankan aplikasi, mendengarkan di semua antarmuka jaringan (0.0.0.0)
-    # Ini sangat penting agar Cloud Run dapat mengarahkan traffic ke kontainer Anda
     app.run(host="0.0.0.0", port=port)
